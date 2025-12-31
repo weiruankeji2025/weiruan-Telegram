@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Telegram 受限媒体下载器
 // @namespace    https://github.com/weiruankeji2025/weiruan-Telegram
-// @version      1.5.3
+// @version      1.5.4
 // @description  下载 Telegram Web 中的受限图片和视频
 // @author       WeiRuan Tech
 // @match        https://web.telegram.org/*
@@ -140,7 +140,14 @@
         let fileExtension = 'mp4';
         let fileName = hashCode(url).toString(36) + '.' + fileExtension;
 
-        const videoId = (Math.random() + 1).toString(36).substring(2, 10) + '_' + Date.now().toString();
+        // 使用URL的hash作为唯一ID，避免重复创建进度条
+        const videoId = hashCode(url).toString(36);
+
+        // 检查是否已经在下载中
+        if (document.getElementById('tg-progress-' + videoId)) {
+            console.log('[下载] 该视频已在下载中，跳过');
+            return;
+        }
 
         // 提取文件名
         try {
@@ -509,7 +516,7 @@
         setupProgressContainer();
         startObserving();
         registerMenuCommands();
-        console.log('[Telegram下载器] v1.5.2 已加载');
+        console.log('[Telegram下载器] v1.5.4 已加载');
         console.log('[配置] 按钮位置:', CONFIG.buttonPosition);
     }
 

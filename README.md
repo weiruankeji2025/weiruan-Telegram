@@ -2,7 +2,7 @@
 
 一个功能强大的油猴脚本，用于下载 Telegram Web 中的受限图片和视频，支持最佳质量下载。
 
-![版本](https://img.shields.io/badge/version-1.5.3-blue.svg)
+![版本](https://img.shields.io/badge/version-1.5.4-blue.svg)
 ![许可证](https://img.shields.io/badge/license-MIT-green.svg)
 ![平台](https://img.shields.io/badge/platform-Telegram%20Web-blue.svg)
 
@@ -230,6 +230,14 @@ Telegram/telegram_video_1704067200000.mp4
 - 💡 原因：某些视频使用特殊编码（H.265/HEVC）浏览器不支持
 
 ## 🚀 更新日志
+
+### v1.5.4 (2025-12-31)
+- 🐛 **修复进度条重复显示问题** - 解决同一视频显示多个进度条的bug
+- 🔑 **使用Hash唯一ID** - 每个视频URL生成唯一标识，防止重复下载
+- 🚫 **添加重复下载检测** - 检测到已在下载中的视频自动跳过
+- 📊 **进度条同步优化** - 确保每个视频只有一个进度条显示
+- ✅ **下载功能正常** - 保持原有所有下载功能
+- 🎯 **更稳定** - 避免用户误点多次导致的UI混乱
 
 ### v1.5.3 (2025-12-31)
 - 📍 **添加按钮位置设置** - 解决按钮被字幕遮挡的问题
