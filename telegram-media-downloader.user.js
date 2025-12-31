@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Telegram 受限媒体下载器
 // @namespace    https://github.com/weiruankeji2025/weiruan-Telegram
-// @version      1.3.4
-// @description  下载 Telegram Web 中的受限图片和视频，支持最佳质量下载
+// @version      1.4.0
+// @description  下载 Telegram Web 中的受限图片和视频，支持最佳质量下载和视频录制
 // @author       WeiRuan Tech
 // @match        https://web.telegram.org/*
 // @match        https://*.web.telegram.org/*
@@ -575,6 +575,129 @@
         return true;
     }
 
+    // 使用 MediaRecorder 录制视频流
+    async function captureVideoWithRecorder(videoElement) {
+        return new Promise((resolve, reject) => {
+            try {
+                notify('开始录制', '正在录制视频...', 'info');
+
+                // 捕获视频流
+                const stream = videoElement.captureStream();
+
+                // 检查流是否有效
+                if (!stream || stream.getTracks().length === 0) {
+                    reject(new Error('无法捕获视频流'));
+                    return;
+                }
+
+                const chunks = [];
+                let mediaRecorder;
+
+                // 尝试不同的编码格式
+                const mimeTypes = [
+                    'video/webm;codecs=vp9,opus',
+                    'video/webm;codecs=vp8,opus',
+                    'video/webm',
+                    'video/mp4'
+                ];
+
+                let selectedMimeType = '';
+                for (const mimeType of mimeTypes) {
+                    if (MediaRecorder.isTypeSupported(mimeType)) {
+                        selectedMimeType = mimeType;
+                        break;
+                    }
+                }
+
+                if (!selectedMimeType) {
+                    reject(new Error('浏览器不支持视频录制'));
+                    return;
+                }
+
+                mediaRecorder = new MediaRecorder(stream, {
+                    mimeType: selectedMimeType,
+                    videoBitsPerSecond: 2500000 // 2.5 Mbps for good quality
+                });
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data && e.data.size > 0) {
+                        chunks.push(e.data);
+                    }
+                };
+
+                mediaRecorder.onstop = () => {
+                    try {
+                        const blob = new Blob(chunks, { type: selectedMimeType });
+                        const blobUrl = URL.createObjectURL(blob);
+
+                        // 停止所有轨道
+                        stream.getTracks().forEach(track => track.stop());
+
+                        notify('录制完成', '视频已录制完成！', 'success');
+                        resolve(blobUrl);
+                    } catch (error) {
+                        reject(error);
+                    }
+                };
+
+                mediaRecorder.onerror = (e) => {
+                    reject(new Error('录制过程中出错: ' + e.error));
+                };
+
+                // 开始录制
+                mediaRecorder.start(1000); // 每秒收集一次数据
+
+                // 确保视频正在播放
+                const wasPlaying = !videoElement.paused;
+                if (!wasPlaying) {
+                    videoElement.play().catch(e => {
+                        console.warn('无法播放视频:', e);
+                    });
+                }
+
+                // 等待视频播放结束或设置超时
+                const recordingTimeout = 300000; // 5分钟超时
+                const timeoutId = setTimeout(() => {
+                    if (mediaRecorder.state !== 'inactive') {
+                        mediaRecorder.stop();
+                    }
+                }, recordingTimeout);
+
+                videoElement.onended = () => {
+                    clearTimeout(timeoutId);
+                    if (mediaRecorder.state !== 'inactive') {
+                        mediaRecorder.stop();
+                    }
+                };
+
+                // 如果视频已经结束了，立即停止
+                if (videoElement.ended) {
+                    // 重新播放以录制
+                    videoElement.currentTime = 0;
+                    videoElement.play().then(() => {
+                        // 等待播放完成
+                    }).catch(e => {
+                        reject(new Error('无法播放视频进行录制: ' + error.message));
+                    });
+                }
+
+            } catch (error) {
+                reject(new Error('录制失败: ' + error.message));
+            }
+        });
+    }
+
+    // 从 blob URL 直接下载
+    async function downloadFromBlobUrl(blobUrl) {
+        try {
+            const response = await fetch(blobUrl);
+            const blob = await response.blob();
+            return URL.createObjectURL(blob);
+        } catch (error) {
+            throw new Error('无法从 blob URL 下载: ' + error.message);
+        }
+    }
+
     // 使用 Canvas 捕获图片
     async function captureImageWithCanvas(imgElement) {
         return new Promise((resolve, reject) => {
@@ -693,9 +816,30 @@
 
                     blobUrl = await captureImageWithCanvas(sourceElement);
                 }
-                // 对于视频，不截图，直接提示用户
-                else if (mediaType === 'video') {
-                    throw new Error('❌ 此视频无法直接下载\n\n💡 原因：\n• 视频使用了 Telegram 内部 URL 格式\n• Service Worker 保护导致无法直接访问\n• 浏览器可能不支持该视频编码格式\n\n✅ 请使用以下方法下载：\n\n1️⃣ Telegram Desktop（推荐）\n   • 打开同一条消息\n   • 右键视频 → 另存为\n   • 支持所有视频格式\n\n2️⃣ 手机 Telegram\n   • 在手机上打开消息\n   • 下载后传输到电脑\n\n3️⃣ 查找粉红色【查看下载方法】按钮\n   • 如果看到"视频无法播放"提示\n   • 点击按钮查看详细指南');
+                // 对于视频，使用 MediaRecorder 录制
+                else if (mediaType === 'video' && sourceElement && sourceElement.tagName === 'VIDEO') {
+                    notify('检测到受限视频', '正在使用录制技术捕获视频...', 'info');
+
+                    // 检查视频是否可以录制
+                    if (!canCaptureVideo(sourceElement)) {
+                        throw new Error('❌ 此视频无法录制\n\n💡 可能的原因：\n• 视频未正确加载\n• 视频源不可用\n• 浏览器限制\n\n✅ 请尝试：\n1️⃣ 等待视频完全加载后再点击下载\n2️⃣ 播放视频一次，然后再尝试下载\n3️⃣ 使用 Telegram Desktop 下载');
+                    }
+
+                    try {
+                        // 使用 MediaRecorder 录制视频
+                        blobUrl = await captureVideoWithRecorder(sourceElement);
+                        // 修改文件扩展名为 webm（录制格式）
+                        filename = filename.replace(/\.(mp4|mov|avi)$/, '.webm');
+                    } catch (recordError) {
+                        // 如果录制失败，尝试从 blob URL 下载
+                        const videoUrl = sourceElement.src || sourceElement.currentSrc;
+                        if (videoUrl && videoUrl.startsWith('blob:')) {
+                            notify('尝试替代方法', '正在从缓存获取视频...', 'info');
+                            blobUrl = await downloadFromBlobUrl(videoUrl);
+                        } else {
+                            throw new Error('❌ 视频录制失败\n\n' + recordError.message + '\n\n✅ 建议：\n1️⃣ 确保视频正在播放\n2️⃣ 使用 Telegram Desktop 下载\n3️⃣ 查看页面上的【查看下载方法】按钮');
+                        }
+                    }
                 }
                 else {
                     throw new Error('无法处理此类型的受限内容');
@@ -707,7 +851,24 @@
             }
             // 处理 blob: URL
             else if (url.startsWith('blob:')) {
-                blobUrl = url;
+                // 对于视频的 blob URL，尝试多种方法
+                if (mediaType === 'video' && sourceElement && sourceElement.tagName === 'VIDEO') {
+                    try {
+                        // 方法1：尝试直接从 blob URL 下载
+                        blobUrl = await downloadFromBlobUrl(url);
+                    } catch (blobError) {
+                        // 方法2：如果失败，尝试录制视频流
+                        notify('切换到录制模式', '正在录制视频流...', 'info');
+                        try {
+                            blobUrl = await captureVideoWithRecorder(sourceElement);
+                            filename = filename.replace(/\.(mp4|mov|avi)$/, '.webm');
+                        } catch (recordError) {
+                            throw new Error('无法下载视频：' + blobError.message + ' | ' + recordError.message);
+                        }
+                    }
+                } else {
+                    blobUrl = url;
+                }
             }
             // 处理普通 HTTP(S) URL
             else {
@@ -1136,7 +1297,7 @@
     function addWatermark() {
         const watermark = document.createElement('div');
         watermark.className = 'tg-watermark';
-        watermark.textContent = 'Telegram 下载器 v1.3.4';
+        watermark.textContent = 'Telegram 下载器 v1.4.0';
         document.body.appendChild(watermark);
 
         // 5秒后隐藏水印
