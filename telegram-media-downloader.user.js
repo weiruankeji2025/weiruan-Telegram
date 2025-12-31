@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Telegram 受限媒体下载器
 // @namespace    https://github.com/weiruankeji2025/weiruan-Telegram
-// @version      1.2.1
+// @version      1.3.0
 // @description  下载 Telegram Web 中的受限图片和视频，支持最佳质量下载
 // @author       WeiRuan Tech
 // @match        https://web.telegram.org/*
@@ -767,8 +767,154 @@
         container.appendChild(button);
     }
 
+    // 检测不可播放的视频消息
+    function detectUnplayableVideo() {
+        // 查找 Telegram 的"无法播放"提示
+        const messageSelectors = [
+            '[class*="not-supported"]',
+            '[class*="unsupported"]',
+            'div[class*="MessageMedia"]',
+            '.message-content',
+            '.media-inner'
+        ];
+
+        for (const selector of messageSelectors) {
+            const elements = document.querySelectorAll(selector);
+            elements.forEach(el => {
+                const text = el.textContent || '';
+                // 检测中英文的"无法播放"消息
+                if (text.includes("can't be played") ||
+                    text.includes("desktop app") ||
+                    text.includes("无法播放") ||
+                    text.includes("桌面应用")) {
+
+                    // 找到对应的媒体容器
+                    const mediaContainer = el.closest('.message') || el.closest('[class*="Message"]');
+                    if (mediaContainer && !mediaContainer.hasAttribute('data-tg-unplayable-processed')) {
+                        mediaContainer.setAttribute('data-tg-unplayable-processed', 'true');
+                        addUnplayableVideoHelp(mediaContainer);
+                    }
+                }
+            });
+        }
+    }
+
+    // 为不可播放的视频添加帮助按钮
+    function addUnplayableVideoHelp(container) {
+        // 创建帮助按钮
+        const helpButton = document.createElement('button');
+        helpButton.className = 'tg-download-btn tg-unplayable-help';
+        helpButton.style.cssText = `
+            position: relative !important;
+            margin: 10px auto;
+            display: flex !important;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        `;
+        helpButton.innerHTML = `
+            <svg class="tg-download-btn-icon" viewBox="0 0 24 24">
+                <path d="M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z"/>
+            </svg>
+            <span>查看下载方法</span>
+        `;
+
+        helpButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            showUnplayableVideoGuide();
+        });
+
+        // 插入到消息容器中
+        const messageContent = container.querySelector('.message-content') ||
+                              container.querySelector('[class*="content"]') ||
+                              container;
+        messageContent.appendChild(helpButton);
+    }
+
+    // 显示不可播放视频的下载指南
+    function showUnplayableVideoGuide() {
+        const overlay = document.createElement('div');
+        overlay.className = 'tg-settings-overlay';
+
+        const panel = document.createElement('div');
+        panel.className = 'tg-settings-panel';
+        panel.style.maxWidth = '600px';
+
+        panel.innerHTML = `
+            <div class="tg-settings-title">📹 视频无法播放 - 解决方案</div>
+
+            <div style="margin-bottom: 20px; color: #666; line-height: 1.6;">
+                <p>此视频只能在 Telegram 桌面应用中播放。以下是几种下载方法：</p>
+            </div>
+
+            <div style="margin-bottom: 16px; padding: 16px; background: #f5f5f5; border-radius: 8px; border-left: 4px solid #667eea;">
+                <h4 style="margin: 0 0 8px 0; color: #333;">✅ 方法一：使用 Telegram Desktop（推荐）</h4>
+                <ol style="margin: 8px 0; padding-left: 20px; color: #666;">
+                    <li>下载并安装 <a href="https://desktop.telegram.org/" target="_blank" style="color: #667eea;">Telegram Desktop</a></li>
+                    <li>打开同一条消息</li>
+                    <li>右键视频 → 另存为</li>
+                    <li>选择保存位置并下载</li>
+                </ol>
+            </div>
+
+            <div style="margin-bottom: 16px; padding: 16px; background: #f5f5f5; border-radius: 8px; border-left: 4px solid #764ba2;">
+                <h4 style="margin: 0 0 8px 0; color: #333;">📱 方法二：使用手机 Telegram</h4>
+                <ol style="margin: 8px 0; padding-left: 20px; color: #666;">
+                    <li>在手机 Telegram 中打开该消息</li>
+                    <li>点击视频播放</li>
+                    <li>点击下载图标保存到相册</li>
+                    <li>通过数据线或云端传输到电脑</li>
+                </ol>
+            </div>
+
+            <div style="margin-bottom: 16px; padding: 16px; background: #f5f5f5; border-radius: 8px; border-left: 4px solid #f5576c;">
+                <h4 style="margin: 0 0 8px 0; color: #333;">🔧 方法三：使用第三方工具</h4>
+                <ol style="margin: 8px 0; padding-left: 20px; color: #666;">
+                    <li>复制消息链接</li>
+                    <li>使用 Telegram 下载工具（如 @SaveVideoBot）</li>
+                    <li>将链接发送给机器人</li>
+                    <li>机器人会返回下载链接</li>
+                </ol>
+            </div>
+
+            <div style="margin-bottom: 16px; padding: 16px; background: #fff3cd; border-radius: 8px; border-left: 4px solid #ffc107;">
+                <h4 style="margin: 0 0 8px 0; color: #856404;">⚠️ 为什么 Web 版无法播放？</h4>
+                <p style="margin: 8px 0; color: #856404; font-size: 14px;">
+                    某些视频使用了特殊编码格式（如 H.265/HEVC），浏览器可能不支持。
+                    Telegram Desktop 使用系统解码器，支持更多格式。
+                </p>
+            </div>
+
+            <div class="tg-settings-buttons">
+                <a href="https://desktop.telegram.org/" target="_blank"
+                   class="tg-settings-btn tg-settings-btn-save"
+                   style="text-decoration: none; text-align: center;">
+                    下载 Telegram Desktop
+                </a>
+                <button class="tg-settings-btn tg-settings-btn-cancel">关闭</button>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+        document.body.appendChild(panel);
+
+        // 关闭按钮
+        panel.querySelector('.tg-settings-btn-cancel').addEventListener('click', () => {
+            overlay.remove();
+            panel.remove();
+        });
+
+        // 点击遮罩关闭
+        overlay.addEventListener('click', () => {
+            overlay.remove();
+            panel.remove();
+        });
+    }
+
     // 扫描页面中的媒体
     function scanForMedia() {
+        // 检测不可播放的视频
+        detectUnplayableVideo();
+
         // 扫描图片
         const images = document.querySelectorAll('img:not([data-tg-downloader-processed])');
         images.forEach(img => {
@@ -863,7 +1009,7 @@
     function addWatermark() {
         const watermark = document.createElement('div');
         watermark.className = 'tg-watermark';
-        watermark.textContent = 'Telegram 下载器 v1.2.1';
+        watermark.textContent = 'Telegram 下载器 v1.3.0';
         document.body.appendChild(watermark);
 
         // 5秒后隐藏水印

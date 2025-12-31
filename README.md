@@ -2,7 +2,7 @@
 
 一个功能强大的油猴脚本，用于下载 Telegram Web 中的受限图片和视频，支持最佳质量下载。
 
-![版本](https://img.shields.io/badge/version-1.2.1-blue.svg)
+![版本](https://img.shields.io/badge/version-1.3.0-blue.svg)
 ![许可证](https://img.shields.io/badge/license-MIT-green.svg)
 ![平台](https://img.shields.io/badge/platform-Telegram%20Web-blue.svg)
 
@@ -220,7 +220,28 @@ Telegram/telegram_video_1704067200000.mp4
 - 推荐使用 Kiwi Browser (Android) + Tampermonkey
 - iOS 可以使用 Safari + Userscripts
 
+### Q7: 看到"此视频无法在 Telegram Web 上播放"怎么办？
+
+**A**:
+- ✅ 脚本会自动检测并显示"查看下载方法"按钮
+- 📖 点击按钮查看详细的下载指南
+- 🖥️ 推荐使用 Telegram Desktop 下载（支持所有视频格式）
+- 📱 或使用手机 Telegram 下载后传输到电脑
+- 💡 原因：某些视频使用特殊编码（H.265/HEVC）浏览器不支持
+
 ## 🚀 更新日志
+
+### v1.3.0 (2025-12-31)
+- 🎯 **新功能**: 检测 Telegram Web 不可播放的视频
+- 📹 自动识别"此视频无法在 Telegram Web 上播放"的消息
+- 🆘 为不可播放视频添加"查看下载方法"按钮
+- 📖 提供详细的下载指南弹窗：
+  - ✅ 方法一：使用 Telegram Desktop（推荐）
+  - 📱 方法二：使用手机 Telegram
+  - 🔧 方法三：使用第三方工具
+- 💡 解释为什么某些视频只能在桌面应用播放
+- 🔗 一键跳转到 Telegram Desktop 下载页面
+- 🎨 精美的帮助界面设计
 
 ### v1.2.1 (2025-12-31)
 - 🐛 **修复视频捕获失败问题**
