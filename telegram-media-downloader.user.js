@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Telegram 受限媒体下载器
 // @namespace    https://github.com/weiruankeji2025/weiruan-Telegram
-// @version      1.2.0
+// @version      1.2.1
 // @description  下载 Telegram Web 中的受限图片和视频，支持最佳质量下载
 // @author       WeiRuan Tech
 // @match        https://web.telegram.org/*
@@ -436,6 +436,28 @@
         );
     }
 
+    // 检查视频是否可以捕获
+    function canCaptureVideo(videoElement) {
+        if (!videoElement) return false;
+
+        // 检查视频元素是否有效
+        if (videoElement.error) {
+            console.warn('视频加载错误:', videoElement.error);
+            return false;
+        }
+
+        // 检查是否有有效的源
+        if (!videoElement.src && !videoElement.currentSrc) {
+            const sources = videoElement.querySelectorAll('source');
+            if (!sources || sources.length === 0) {
+                console.warn('视频没有有效的源');
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     // 使用 Canvas 捕获图片
     async function captureImageWithCanvas(imgElement) {
         return new Promise((resolve, reject) => {
@@ -462,23 +484,65 @@
 
     // 使用 Canvas 捕获视频当前帧
     async function captureVideoFrame(videoElement) {
-        return new Promise((resolve, reject) => {
+        return new Promise(async (resolve, reject) => {
             try {
+                // 检查视频是否有尺寸
+                if (!videoElement.videoWidth || !videoElement.videoHeight) {
+                    // 等待视频加载元数据
+                    if (videoElement.readyState < 2) { // HAVE_METADATA
+                        await new Promise((res, rej) => {
+                            const timeout = setTimeout(() => rej(new Error('视频元数据加载超时')), 10000);
+                            videoElement.addEventListener('loadedmetadata', () => {
+                                clearTimeout(timeout);
+                                res();
+                            }, { once: true });
+
+                            // 如果视频暂停，尝试播放一帧
+                            if (videoElement.paused) {
+                                videoElement.play().catch(() => {});
+                            }
+                        });
+                    }
+                }
+
+                // 再次检查尺寸
+                const width = videoElement.videoWidth || videoElement.clientWidth || 640;
+                const height = videoElement.videoHeight || videoElement.clientHeight || 480;
+
+                if (width === 0 || height === 0) {
+                    throw new Error('无法获取视频尺寸');
+                }
+
                 const canvas = document.createElement('canvas');
-                canvas.width = videoElement.videoWidth || videoElement.width;
-                canvas.height = videoElement.videoHeight || videoElement.height;
+                canvas.width = width;
+                canvas.height = height;
 
                 const ctx = canvas.getContext('2d');
-                ctx.drawImage(videoElement, 0, 0);
+
+                // 尝试绘制视频帧
+                try {
+                    ctx.drawImage(videoElement, 0, 0, width, height);
+                } catch (drawError) {
+                    console.error('绘制视频帧失败:', drawError);
+                    throw new Error('无法绘制视频帧');
+                }
+
+                // 检查画布是否为空
+                const imageData = ctx.getImageData(0, 0, width, height);
+                const isEmpty = imageData.data.every(v => v === 0);
+                if (isEmpty) {
+                    throw new Error('视频画面为空，请等待视频加载');
+                }
 
                 canvas.toBlob((blob) => {
-                    if (blob) {
+                    if (blob && blob.size > 0) {
                         resolve(URL.createObjectURL(blob));
                     } else {
-                        reject(new Error('视频帧捕获失败'));
+                        reject(new Error('视频帧转换失败'));
                     }
                 }, 'image/png', 1.0);
             } catch (error) {
+                console.error('视频捕获错误:', error);
                 reject(error);
             }
         });
@@ -508,10 +572,21 @@
                 }
                 // 对于视频，捕获当前帧（作为图片）
                 else if (mediaType === 'video' && sourceElement && sourceElement.tagName === 'VIDEO') {
-                    notify('视频截图', '将保存视频当前画面...', 'warning');
-                    blobUrl = await captureVideoFrame(sourceElement);
-                    // 修改文件名为图片格式
-                    filename = filename.replace(/\.(mp4|webm)$/, '.png');
+                    // 先检查视频是否可以捕获
+                    if (!canCaptureVideo(sourceElement)) {
+                        throw new Error('视频未加载或加载失败。建议：1) 等待视频加载完成后再试 2) 右键视频选择"视频另存为" 3) 使用屏幕录制工具');
+                    }
+
+                    try {
+                        notify('视频截图', '正在捕获视频画面...', 'info');
+                        blobUrl = await captureVideoFrame(sourceElement);
+                        // 修改文件名为图片格式
+                        filename = filename.replace(/\.(mp4|webm)$/, '.png');
+                        notify('截图成功', '将保存为PNG图片', 'success');
+                    } catch (videoError) {
+                        console.error('视频捕获失败:', videoError);
+                        throw new Error(`视频截图失败: ${videoError.message}。提示：Telegram受限视频可能无法直接下载。建议使用浏览器自带的"视频另存为"功能或屏幕录制工具。`);
+                    }
                 }
                 else {
                     throw new Error('无法处理此类型的受限内容');
@@ -788,7 +863,7 @@
     function addWatermark() {
         const watermark = document.createElement('div');
         watermark.className = 'tg-watermark';
-        watermark.textContent = 'Telegram 下载器 v1.2.0';
+        watermark.textContent = 'Telegram 下载器 v1.2.1';
         document.body.appendChild(watermark);
 
         // 5秒后隐藏水印
