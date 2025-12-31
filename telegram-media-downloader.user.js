@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Telegram 受限媒体下载器
 // @namespace    https://github.com/weiruankeji2025/weiruan-Telegram
-// @version      1.3.3
+// @version      1.3.4
 // @description  下载 Telegram Web 中的受限图片和视频，支持最佳质量下载
 // @author       WeiRuan Tech
 // @match        https://web.telegram.org/*
@@ -678,10 +678,10 @@
 
             // 检查是否是 Telegram 内部 URL
             if (isTelegramInternalUrl(url)) {
-                notify('检测到受限内容', '正在使用高级捕获技术...', 'info');
-
                 // 对于图片，使用 Canvas 捕获
                 if (mediaType === 'image' && sourceElement && sourceElement.tagName === 'IMG') {
+                    notify('检测到受限内容', '正在使用高级捕获技术...', 'info');
+
                     // 等待图片完全加载
                     if (!sourceElement.complete) {
                         await new Promise((resolve, reject) => {
@@ -693,29 +693,9 @@
 
                     blobUrl = await captureImageWithCanvas(sourceElement);
                 }
-                // 对于视频，捕获当前帧（作为图片）
-                else if (mediaType === 'video' && sourceElement && sourceElement.tagName === 'VIDEO') {
-                    // 先检查视频是否可以捕获
-                    if (!canCaptureVideo(sourceElement)) {
-                        throw new Error('❌ 此视频无法下载\n\n💡 这可能是因为：\n• 视频使用了特殊编码（H.265/HEVC）浏览器不支持\n• Telegram Web 限制了此视频的播放\n\n✅ 请点击页面上的【查看下载方法】按钮，获取完整下载指南！\n\n或使用以下方法：\n1️⃣ Telegram Desktop（推荐）\n2️⃣ 手机 Telegram\n3️⃣ 屏幕录制工具');
-                    }
-
-                    try {
-                        notify('视频截图', '正在捕获视频画面...', 'info');
-                        blobUrl = await captureVideoFrame(sourceElement);
-                        // 修改文件名为图片格式
-                        filename = filename.replace(/\.(mp4|webm)$/, '.png');
-                        notify('截图成功', '将保存为PNG图片', 'success');
-                    } catch (videoError) {
-                        console.error('视频捕获失败:', videoError);
-
-                        // 检查是否是超时错误
-                        if (videoError.message.includes('超时') || videoError.message.includes('timeout')) {
-                            throw new Error('❌ 视频加载超时\n\n💡 此视频可能无法在 Telegram Web 上播放\n\n✅ 请查找页面上的【查看下载方法】按钮（粉红色），点击查看完整下载指南！\n\n推荐方案：\n• 使用 Telegram Desktop（最简单）\n• 或在手机 Telegram 中下载');
-                        }
-
-                        throw new Error(`❌ 视频处理失败\n\n原因：${videoError.message}\n\n✅ 请使用页面上的【查看下载方法】按钮获取其他下载方案`);
-                    }
+                // 对于视频，不截图，直接提示用户
+                else if (mediaType === 'video') {
+                    throw new Error('❌ 此视频无法直接下载\n\n💡 原因：\n• 视频使用了 Telegram 内部 URL 格式\n• Service Worker 保护导致无法直接访问\n• 浏览器可能不支持该视频编码格式\n\n✅ 请使用以下方法下载：\n\n1️⃣ Telegram Desktop（推荐）\n   • 打开同一条消息\n   • 右键视频 → 另存为\n   • 支持所有视频格式\n\n2️⃣ 手机 Telegram\n   • 在手机上打开消息\n   • 下载后传输到电脑\n\n3️⃣ 查找粉红色【查看下载方法】按钮\n   • 如果看到"视频无法播放"提示\n   • 点击按钮查看详细指南');
                 }
                 else {
                     throw new Error('无法处理此类型的受限内容');
@@ -766,7 +746,7 @@
                 }
             }, 100);
 
-            notify('下载完成', `${mediaType === 'video' ? '图片' : '图片'}已保存！`, 'success');
+            notify('下载完成', `${mediaType === 'video' ? '视频' : '图片'}已保存！`, 'success');
         } catch (error) {
             console.error('备用下载错误:', error);
             throw new Error(`备用下载失败: ${error.message}`);
@@ -1156,7 +1136,7 @@
     function addWatermark() {
         const watermark = document.createElement('div');
         watermark.className = 'tg-watermark';
-        watermark.textContent = 'Telegram 下载器 v1.3.3';
+        watermark.textContent = 'Telegram 下载器 v1.3.4';
         document.body.appendChild(watermark);
 
         // 5秒后隐藏水印
