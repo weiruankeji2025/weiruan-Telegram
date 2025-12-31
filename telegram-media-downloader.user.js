@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Telegram 受限媒体下载器
 // @namespace    https://github.com/weiruankeji2025/weiruan-Telegram
-// @version      1.5.2
+// @version      1.5.3
 // @description  下载 Telegram Web 中的受限图片和视频
 // @author       WeiRuan Tech
 // @match        https://web.telegram.org/*
@@ -23,7 +23,15 @@
     const CONFIG = {
         downloadPath: GM_getValue('downloadPath', 'Telegram'),
         notifyOnDownload: GM_getValue('notifyOnDownload', true),
+        buttonPosition: GM_getValue('buttonPosition', 'top-right'), // top-right, top-left, bottom-right, bottom-left
     };
+
+    // 保存配置
+    function saveConfig() {
+        GM_setValue('downloadPath', CONFIG.downloadPath);
+        GM_setValue('notifyOnDownload', CONFIG.notifyOnDownload);
+        GM_setValue('buttonPosition', CONFIG.buttonPosition);
+    }
 
     // Content-Range 正则
     const contentRangeRegex = /^bytes (\d+)-(\d+)\/(\d+)$/;
@@ -358,7 +366,16 @@
             <span>下载${mediaType === 'video' ? '视频' : '图片'}</span>
         `;
 
-        button.style.cssText = 'position:absolute;top:10px;right:10px;padding:8px 16px;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;border:none;border-radius:20px;cursor:pointer;font-size:14px;font-weight:bold;display:flex;align-items:center;gap:8px;box-shadow:0 4px 6px rgba(0,0,0,0.1);z-index:1000;opacity:0.9;transition:all 0.3s;';
+        // 根据配置设置按钮位置
+        const positions = {
+            'top-right': 'top:10px;right:10px;',
+            'top-left': 'top:10px;left:10px;',
+            'bottom-right': 'bottom:10px;right:10px;',
+            'bottom-left': 'bottom:10px;left:10px;'
+        };
+        const positionStyle = positions[CONFIG.buttonPosition] || positions['top-right'];
+
+        button.style.cssText = `position:absolute;${positionStyle}padding:8px 16px;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;border:none;border-radius:20px;cursor:pointer;font-size:14px;font-weight:bold;display:flex;align-items:center;gap:8px;box-shadow:0 4px 6px rgba(0,0,0,0.1);z-index:1000;opacity:0.9;transition:all 0.3s;`;
 
         button.addEventListener('click', async (e) => {
             e.stopPropagation();
@@ -459,12 +476,41 @@
         document.body.appendChild(container);
     }
 
+    // 注册菜单命令
+    function registerMenuCommands() {
+        GM_registerMenuCommand('📍 按钮位置: 右上角', () => {
+            CONFIG.buttonPosition = 'top-right';
+            saveConfig();
+            alert('✅ 按钮位置已设置为：右上角\n\n刷新页面后生效');
+        });
+
+        GM_registerMenuCommand('📍 按钮位置: 左上角', () => {
+            CONFIG.buttonPosition = 'top-left';
+            saveConfig();
+            alert('✅ 按钮位置已设置为：左上角\n\n刷新页面后生效');
+        });
+
+        GM_registerMenuCommand('📍 按钮位置: 右下角', () => {
+            CONFIG.buttonPosition = 'bottom-right';
+            saveConfig();
+            alert('✅ 按钮位置已设置为：右下角\n\n刷新页面后生效');
+        });
+
+        GM_registerMenuCommand('📍 按钮位置: 左下角', () => {
+            CONFIG.buttonPosition = 'bottom-left';
+            saveConfig();
+            alert('✅ 按钮位置已设置为：左下角\n\n刷新页面后生效');
+        });
+    }
+
     // 初始化
     function init() {
         addStyles();
         setupProgressContainer();
         startObserving();
+        registerMenuCommands();
         console.log('[Telegram下载器] v1.5.2 已加载');
+        console.log('[配置] 按钮位置:', CONFIG.buttonPosition);
     }
 
     // 启动
