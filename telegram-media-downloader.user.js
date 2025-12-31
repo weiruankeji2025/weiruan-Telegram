@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Telegram 受限媒体下载器
 // @namespace    https://github.com/weiruankeji2025/weiruan-Telegram
-// @version      1.5.4
+// @version      1.5.5
 // @description  下载 Telegram Web 中的受限图片和视频
 // @author       WeiRuan Tech
 // @match        https://web.telegram.org/*
@@ -35,6 +35,9 @@
 
     // Content-Range 正则
     const contentRangeRegex = /^bytes (\d+)-(\d+)\/(\d+)$/;
+
+    // 正在下载的视频集合（防止重复下载）
+    const downloadingVideos = new Set();
 
     // Hash函数
     const hashCode = (s) => {
@@ -132,22 +135,22 @@
         bar.style.width = '100%';
     }
 
-    // 分块下载视频
+    // 分块下载视频（优化版：并发下载提速）
     async function downloadVideo(url) {
-        let blobs = [];
-        let nextOffset = 0;
-        let totalSize = null;
-        let fileExtension = 'mp4';
-        let fileName = hashCode(url).toString(36) + '.' + fileExtension;
-
-        // 使用URL的hash作为唯一ID，避免重复创建进度条
+        // 使用URL的hash作为唯一ID
         const videoId = hashCode(url).toString(36);
 
-        // 检查是否已经在下载中
-        if (document.getElementById('tg-progress-' + videoId)) {
+        // 检查是否已经在下载中（使用Set防止重复）
+        if (downloadingVideos.has(videoId)) {
             console.log('[下载] 该视频已在下载中，跳过');
             return;
         }
+
+        // 添加到下载中集合
+        downloadingVideos.add(videoId);
+
+        let fileExtension = 'mp4';
+        let fileName = videoId + '.' + fileExtension;
 
         // 提取文件名
         try {
@@ -158,71 +161,114 @@
 
         createProgressBar(videoId, fileName);
 
-        const fetchNext = async () => {
-            try {
-                const res = await fetch(url, {
-                    method: 'GET',
-                    headers: { 'Range': `bytes=${nextOffset}-` },
-                    credentials: 'include'
-                });
+        try {
+            // 第一步：获取文件总大小
+            const headRes = await fetch(url, {
+                method: 'HEAD',
+                credentials: 'include'
+            });
 
-                if (![200, 206].includes(res.status)) {
-                    throw new Error(`HTTP ${res.status}`);
+            const contentLength = headRes.headers.get('Content-Length');
+            const totalSize = contentLength ? parseInt(contentLength) : null;
+
+            // 获取MIME类型
+            const mime = headRes.headers.get('Content-Type')?.split(';')[0];
+            if (mime && mime.startsWith('video/')) {
+                fileExtension = mime.split('/')[1];
+                if (!fileName.includes('.')) {
+                    fileName = videoId + '.' + fileExtension;
                 }
-
-                const mime = res.headers.get('Content-Type')?.split(';')[0];
-                if (mime && mime.startsWith('video/')) {
-                    fileExtension = mime.split('/')[1];
-                    fileName = fileName.substring(0, fileName.lastIndexOf('.') + 1) + fileExtension;
-                }
-
-                const range = res.headers.get('Content-Range');
-                if (range) {
-                    const match = range.match(contentRangeRegex);
-                    if (match) {
-                        const start = parseInt(match[1]);
-                        const end = parseInt(match[2]);
-                        const total = parseInt(match[3]);
-
-                        if (start !== nextOffset) throw new Error('分块不连续');
-                        if (totalSize && total !== totalSize) throw new Error('大小不一致');
-
-                        nextOffset = end + 1;
-                        totalSize = total;
-
-                        updateProgress(videoId, fileName, Math.round((nextOffset * 100) / totalSize));
-                    }
-                }
-
-                blobs.push(await res.blob());
-
-                if (totalSize && nextOffset < totalSize) {
-                    return fetchNext();
-                } else {
-                    const blob = new Blob(blobs, { type: `video/${fileExtension}` });
-                    const blobUrl = URL.createObjectURL(blob);
-
-                    const a = document.createElement('a');
-                    a.href = blobUrl;
-                    a.download = fileName;
-                    a.style.display = 'none';
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-
-                    setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
-
-                    completeProgress(videoId);
-                    notify('下载完成', fileName);
-                }
-            } catch (error) {
-                console.error('[下载错误]', error);
-                abortProgress(videoId);
-                throw error;
             }
-        };
 
-        return fetchNext();
+            console.log(`[下载] 文件大小: ${totalSize ? (totalSize / 1024 / 1024).toFixed(2) + 'MB' : '未知'}`);
+
+            // 如果文件较小（<10MB）或服务器不支持Range，直接下载
+            if (!totalSize || totalSize < 10 * 1024 * 1024) {
+                console.log('[下载] 使用直接下载模式');
+                const res = await fetch(url, { credentials: 'include' });
+                const blob = await res.blob();
+
+                completeProgress(videoId);
+
+                const blobUrl = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = blobUrl;
+                a.download = fileName;
+                a.style.display = 'none';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+
+                notify('下载完成', fileName);
+                downloadingVideos.delete(videoId);
+                return;
+            }
+
+            // 大文件：使用并发分块下载（提速）
+            console.log('[下载] 使用并发分块下载模式');
+            const chunkSize = 2 * 1024 * 1024; // 2MB per chunk
+            const chunks = [];
+            const totalChunks = Math.ceil(totalSize / chunkSize);
+
+            // 并发下载（最多4个并发）
+            const concurrency = 4;
+            let downloadedSize = 0;
+
+            for (let i = 0; i < totalChunks; i += concurrency) {
+                const batchPromises = [];
+
+                for (let j = 0; j < concurrency && (i + j) < totalChunks; j++) {
+                    const chunkIndex = i + j;
+                    const start = chunkIndex * chunkSize;
+                    const end = Math.min(start + chunkSize - 1, totalSize - 1);
+
+                    const promise = fetch(url, {
+                        method: 'GET',
+                        headers: { 'Range': `bytes=${start}-${end}` },
+                        credentials: 'include'
+                    }).then(res => {
+                        if (![200, 206].includes(res.status)) {
+                            throw new Error(`HTTP ${res.status}`);
+                        }
+                        return res.blob();
+                    }).then(blob => {
+                        chunks[chunkIndex] = blob;
+                        downloadedSize += blob.size;
+                        updateProgress(videoId, fileName, Math.round((downloadedSize * 100) / totalSize));
+                    });
+
+                    batchPromises.push(promise);
+                }
+
+                await Promise.all(batchPromises);
+            }
+
+            // 合并所有分块
+            console.log('[下载] 合并分块中...');
+            const blob = new Blob(chunks, { type: `video/${fileExtension}` });
+            const blobUrl = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = fileName;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+
+            completeProgress(videoId);
+            notify('下载完成', fileName);
+        } catch (error) {
+            console.error('[下载错误]', error);
+            abortProgress(videoId);
+            notify('下载失败', error.message);
+        } finally {
+            // 从下载中集合移除
+            downloadingVideos.delete(videoId);
+        }
     }
 
     // Canvas捕获图片
@@ -516,7 +562,7 @@
         setupProgressContainer();
         startObserving();
         registerMenuCommands();
-        console.log('[Telegram下载器] v1.5.4 已加载');
+        console.log('[Telegram下载器] v1.5.5 已加载');
         console.log('[配置] 按钮位置:', CONFIG.buttonPosition);
     }
 
