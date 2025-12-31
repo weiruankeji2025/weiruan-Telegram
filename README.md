@@ -1,1 +1,263 @@
-# weiruan-Telegram
+# 🚀 Telegram 受限媒体下载器
+
+一个功能强大的油猴脚本，用于下载 Telegram Web 中的受限图片和视频，支持最佳质量下载。
+
+![版本](https://img.shields.io/badge/version-1.0.0-blue.svg)
+![许可证](https://img.shields.io/badge/license-MIT-green.svg)
+![平台](https://img.shields.io/badge/platform-Telegram%20Web-blue.svg)
+
+## ✨ 主要功能
+
+### 1. 📥 全面下载支持
+- ✅ 下载所有受限图片（包括 Canvas 渲染的图片）
+- ✅ 下载所有受限视频
+- ✅ 自动获取最佳质量的媒体文件
+- ✅ 支持多种媒体格式
+
+### 2. 🎨 用户友好界面
+- ✅ 精美的悬浮下载按钮（渐变色设计）
+- ✅ 可自定义按钮位置（四个角落可选）
+- ✅ 实时下载进度提示
+- ✅ Toast 通知 + 系统通知双重提醒
+- ✅ 平滑的动画效果
+
+### 3. ⚙️ 丰富的设置选项
+- ✅ 自定义下载文件夹名称
+- ✅ 三档质量选择（最佳/中等/低）
+- ✅ 按钮位置自定义
+- ✅ 通知开关控制
+- ✅ 所有设置持久化保存
+
+### 4. 🔓 绕过限制
+- ✅ 自动绕过右键菜单限制
+- ✅ 解除复制粘贴限制
+- ✅ 移除拖拽限制
+- ✅ 解除选择文本限制
+
+### 5. 🎯 智能识别
+- ✅ 自动扫描页面媒体元素
+- ✅ 实时监听 DOM 变化
+- ✅ 智能过滤小图标
+- ✅ 支持动态加载的内容
+
+## 📦 安装步骤
+
+### 步骤 1: 安装油猴扩展
+
+根据你的浏览器选择对应的油猴扩展：
+
+- **Chrome**: [Tampermonkey](https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo)
+- **Firefox**: [Tampermonkey](https://addons.mozilla.org/en-US/firefox/addon/tampermonkey/)
+- **Edge**: [Tampermonkey](https://microsoftedge.microsoft.com/addons/detail/tampermonkey/iikmkjmpaadaobahmlepeloendndfphd)
+- **Safari**: [Tampermonkey](https://apps.apple.com/us/app/tampermonkey/id1482490089)
+- **Opera**: [Tampermonkey](https://addons.opera.com/en/extensions/details/tampermonkey-beta/)
+
+### 步骤 2: 安装脚本
+
+1. 点击这里安装脚本: [telegram-media-downloader.user.js](https://github.com/weiruankeji2025/weiruan-Telegram/raw/main/telegram-media-downloader.user.js)
+2. 或者手动安装：
+   - 打开 Tampermonkey 管理面板
+   - 点击 "+" 创建新脚本
+   - 复制 `telegram-media-downloader.user.js` 的内容
+   - 粘贴并保存
+
+### 步骤 3: 刷新 Telegram
+
+1. 打开 [Telegram Web](https://web.telegram.org/)
+2. 刷新页面（F5 或 Ctrl+R）
+3. 看到 "下载器已就绪" 通知即表示成功！
+
+## 🎮 使用方法
+
+### 基础使用
+
+1. **打开 Telegram Web** 并登录
+2. **浏览任何频道或聊天**
+3. **查看图片或视频**时，会自动显示下载按钮
+4. **点击下载按钮**即可保存媒体文件
+
+### 下载按钮说明
+
+下载按钮会显示在媒体元素上，有以下三种状态：
+
+| 状态 | 图标颜色 | 说明 |
+|------|----------|------|
+| 🟣 紫色渐变 | 正常状态 | 可以点击下载 |
+| 🔴 红色渐变 | 下载中 | 正在下载，请稍候 |
+| 🔵 蓝色渐变 | 下载完成 | 下载成功（2秒后恢复） |
+
+### 打开设置面板
+
+有两种方式打开设置：
+
+1. **点击油猴图标** → 选择 "⚙️ 打开设置"
+2. **在页面任意位置** → 右键 → Tampermonkey → "⚙️ 打开设置"
+
+### 设置选项详解
+
+#### 📁 下载文件夹名称
+- 设置下载文件的保存文件夹
+- 默认: `Telegram`
+- 示例: `TelegramMedia`, `Downloads/Telegram`
+
+#### 🎨 下载质量
+- **最佳质量**: 下载原始高清媒体（推荐）
+- **中等质量**: 下载中等分辨率媒体
+- **低质量**: 下载低分辨率媒体（节省空间）
+
+#### 📍 按钮位置
+- **右上角**: 默认位置
+- **右下角**: 适合大屏幕
+- **左上角**: 适合左撇子
+- **左下角**: 个性化选择
+
+#### 🔔 启用下载通知
+- 开启后会显示下载进度和结果通知
+- 包括页面内 Toast 和系统通知
+
+## 🎯 功能展示
+
+### 界面效果
+
+```
+┌─────────────────────────────────────┐
+│  Telegram Chat                      │
+│  ┌───────────────┐  [下载图片] ←──┐│
+│  │               │                 ││
+│  │   媒体内容    │  悬浮下载按钮   ││
+│  │               │                 ││
+│  └───────────────┘                 ││
+│                                     │
+│  Toast 通知: "下载完成！"          │
+└─────────────────────────────────────┘
+```
+
+### 通知示例
+
+- ✅ "下载器已就绪 - Telegram 媒体下载器已成功加载！"
+- 📥 "开始下载 - 正在下载图片..."
+- ✔️ "下载完成 - 图片已保存到: Telegram/telegram_image_1234567890.jpg"
+- ❌ "下载失败 - 请重试"
+
+## 🔧 高级功能
+
+### 手动重新扫描
+
+如果某些媒体没有显示下载按钮：
+
+1. 点击油猴图标
+2. 选择 "🔄 重新扫描媒体"
+3. 等待几秒钟
+
+### 支持的媒体类型
+
+| 类型 | 格式 | 说明 |
+|------|------|------|
+| 图片 | JPG, PNG, WebP | 自动选择最佳质量 |
+| 视频 | MP4, WebM | 支持高清视频 |
+| Canvas | PNG | 受限内容转换 |
+
+### 文件命名规则
+
+下载的文件会自动命名为：
+```
+{文件夹}/{媒体类型}_{时间戳}.{扩展名}
+
+示例:
+Telegram/telegram_image_1704067200000.jpg
+Telegram/telegram_video_1704067200000.mp4
+```
+
+## 🛠️ 技术特性
+
+- ✅ **零依赖**: 纯 JavaScript 实现
+- ✅ **轻量级**: 代码简洁高效
+- ✅ **高性能**: 使用 MutationObserver 实时监听
+- ✅ **安全性**: 不收集任何用户数据
+- ✅ **兼容性**: 支持所有主流浏览器
+- ✅ **响应式**: 自适应各种屏幕尺寸
+
+## 📋 常见问题
+
+### Q1: 为什么有些媒体没有下载按钮？
+
+**A**: 可能的原因：
+- 媒体还在加载中，请等待几秒
+- 图片太小（小于 100x100），被过滤了
+- 使用 "🔄 重新扫描媒体" 功能
+
+### Q2: 下载的文件保存在哪里？
+
+**A**:
+- 浏览器会弹出保存对话框
+- 你可以选择具体的保存位置
+- 默认会使用你设置的文件夹名称
+
+### Q3: 可以批量下载吗？
+
+**A**:
+- 当前版本需要逐个点击下载
+- 未来版本会考虑添加批量下载功能
+
+### Q4: 下载速度慢怎么办？
+
+**A**:
+- 这取决于你的网络速度和 Telegram 服务器
+- 可以尝试切换到 "中等质量" 或 "低质量"
+
+### Q5: 脚本安全吗？
+
+**A**:
+- ✅ 完全开源，代码可审计
+- ✅ 不收集任何个人信息
+- ✅ 所有设置保存在本地
+- ✅ 使用 Tampermonkey 的安全 API
+
+### Q6: 支持移动端吗？
+
+**A**:
+- 需要移动浏览器支持油猴扩展
+- 推荐使用 Kiwi Browser (Android) + Tampermonkey
+- iOS 可以使用 Safari + Userscripts
+
+## 🚀 更新日志
+
+### v1.0.0 (2024-01-01)
+- ✨ 首次发布
+- ✅ 支持图片和视频下载
+- ✅ 精美的 UI 界面
+- ✅ 完整的设置系统
+- ✅ 通知提醒功能
+- ✅ 绕过下载限制
+
+## 🤝 贡献
+
+欢迎提交 Issue 和 Pull Request！
+
+1. Fork 本仓库
+2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 开启 Pull Request
+
+## 📄 许可证
+
+本项目采用 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件
+
+## 💖 支持项目
+
+如果这个脚本对你有帮助，请给个 ⭐️ Star！
+
+## 🔗 相关链接
+
+- [Telegram Web](https://web.telegram.org/)
+- [Tampermonkey](https://www.tampermonkey.net/)
+- [问题反馈](https://github.com/weiruankeji2025/weiruan-Telegram/issues)
+
+## ⚠️ 免责声明
+
+本脚本仅供学习和个人使用，请遵守 Telegram 的服务条款和当地法律法规。下载的内容版权归原作者所有，请勿用于商业用途。
+
+---
+
+Made with ❤️ by WeiRuan Tech

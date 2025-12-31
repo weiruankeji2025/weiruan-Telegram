@@ -1,0 +1,48 @@
+# 编辑器和 IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# 日志文件
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 临时文件
+.tmp/
+temp/
+*.tmp
+
+# 操作系统文件
+Thumbs.db
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# 备份文件
+*.bak
+*.backup
+*~
+
+# Node modules (如果将来添加)
+node_modules/
+package-lock.json
+yarn.lock
+
+# 构建输出
+dist/
+build/
+*.min.js
+
+# 测试覆盖率
+coverage/
+.nyc_output/
+
+# 环境变量
+.env
+.env.local
+.env.*.local
