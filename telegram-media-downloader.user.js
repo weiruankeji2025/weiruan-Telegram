@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Telegram 受限媒体下载器
 // @namespace    https://github.com/weiruankeji2025/weiruan-Telegram
-// @version      1.3.2
+// @version      1.3.3
 // @description  下载 Telegram Web 中的受限图片和视频，支持最佳质量下载
 // @author       WeiRuan Tech
 // @match        https://web.telegram.org/*
@@ -353,6 +353,57 @@
         });
     }
 
+    // 检查元素是否在聊天列表或侧边栏中
+    function isInChatListOrSidebar(element) {
+        // 检查是否在聊天列表中
+        const chatListSelectors = [
+            '.chat-list',
+            '[class*="ChatList"]',
+            '[class*="chatlist"]',
+            '.left-column',
+            '[class*="LeftColumn"]',
+            '.sidebar',
+            '[class*="Sidebar"]',
+            '.dialogs',
+            '[class*="Dialog"]'
+        ];
+
+        for (const selector of chatListSelectors) {
+            if (element.closest(selector)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // 检查是否是真正的媒体查看器或消息中的媒体
+    function isActualMediaContent(element, container) {
+        // 必须在媒体查看器或消息媒体容器中
+        const validContainers = [
+            '.media-viewer',
+            '[class*="MediaViewer"]',
+            '.message-media',
+            '[class*="MessageMedia"]',
+            '.album',
+            '[class*="Album"]',
+            '.attachment',
+            '[class*="Attachment"]',
+            '.photo',
+            '[class*="Photo"]',
+            '.video-player',
+            '[class*="VideoPlayer"]'
+        ];
+
+        for (const selector of validContainers) {
+            if (container.closest(selector)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     // 检测容器中是否有头像或重要元素
     function hasAvatarOrImportantElement(container) {
         // 查找常见的头像选择器
@@ -363,13 +414,23 @@
             '.profile-photo',
             '[class*="ProfilePhoto"]',
             'img[class*="round"]',
-            'img[class*="circle"]'
+            'img[class*="circle"]',
+            '[class*="sender-photo"]',
+            '[class*="SenderPhoto"]'
         ];
 
         for (const selector of avatarSelectors) {
             if (container.querySelector(selector)) {
                 return true;
             }
+        }
+
+        // 检查容器本身是否是头像
+        const containerClasses = container.className || '';
+        if (containerClasses.includes('avatar') ||
+            containerClasses.includes('Avatar') ||
+            containerClasses.includes('profile')) {
+            return true;
         }
 
         return false;
@@ -814,16 +875,34 @@
         if (element.hasAttribute('data-tg-downloader-processed')) return;
         element.setAttribute('data-tg-downloader-processed', 'true');
 
-        const url = getBestQualityUrl(element, mediaType);
-        if (!url) return;
+        // 排除聊天列表和侧边栏中的图片（如头像）
+        if (isInChatListOrSidebar(element)) {
+            return;
+        }
 
         // 查找合适的父容器
         let container = element.closest('.media-viewer-content') ||
                        element.closest('.media-viewer') ||
                        element.closest('.message-media') ||
+                       element.closest('[class*="Media"]') ||
                        element.parentElement;
 
         if (!container) container = element;
+
+        // 检查是否是真正的媒体内容（而非头像等）
+        if (!isActualMediaContent(element, container)) {
+            // 不是媒体查看器或消息媒体，可能是头像或其他UI元素
+            return;
+        }
+
+        // 排除头像本身
+        if (hasAvatarOrImportantElement(element.parentElement) &&
+            element.parentElement.querySelector('.avatar, [class*="Avatar"]') === element) {
+            return;
+        }
+
+        const url = getBestQualityUrl(element, mediaType);
+        if (!url) return;
 
         // 确保容器有相对定位
         if (window.getComputedStyle(container).position === 'static') {
@@ -1077,7 +1156,7 @@
     function addWatermark() {
         const watermark = document.createElement('div');
         watermark.className = 'tg-watermark';
-        watermark.textContent = 'Telegram 下载器 v1.3.2';
+        watermark.textContent = 'Telegram 下载器 v1.3.3';
         document.body.appendChild(watermark);
 
         // 5秒后隐藏水印
