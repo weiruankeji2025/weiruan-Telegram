@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Telegram 受限媒体下载器
 // @namespace    https://github.com/weiruankeji2025/weiruan-Telegram
-// @version      1.3.1
+// @version      1.3.2
 // @description  下载 Telegram Web 中的受限图片和视频，支持最佳质量下载
 // @author       WeiRuan Tech
 // @match        https://web.telegram.org/*
@@ -113,25 +113,28 @@
                 position: absolute;
                 z-index: 10000;
                 padding: 8px 16px;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                background: linear-gradient(135deg, rgba(102, 126, 234, 0.85) 0%, rgba(118, 75, 162, 0.85) 100%);
                 color: white;
                 border: none;
                 border-radius: 20px;
                 cursor: pointer;
                 font-size: 13px;
                 font-weight: 600;
-                box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+                box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
                 transition: all 0.3s ease;
                 display: flex;
                 align-items: center;
                 gap: 6px;
                 backdrop-filter: blur(10px);
+                opacity: 0.9;
+                pointer-events: auto;
             }
 
             .tg-download-btn:hover {
-                transform: translateY(-2px);
+                transform: translateY(-2px) scale(1.02);
                 box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
-                background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+                background: linear-gradient(135deg, rgba(118, 75, 162, 0.95) 0%, rgba(102, 126, 234, 0.95) 100%);
+                opacity: 1;
             }
 
             .tg-download-btn:active {
@@ -350,19 +353,58 @@
         });
     }
 
-    // 获取按钮位置样式
-    function getButtonPositionStyle() {
+    // 检测容器中是否有头像或重要元素
+    function hasAvatarOrImportantElement(container) {
+        // 查找常见的头像选择器
+        const avatarSelectors = [
+            '.avatar',
+            '[class*="Avatar"]',
+            '[class*="avatar"]',
+            '.profile-photo',
+            '[class*="ProfilePhoto"]',
+            'img[class*="round"]',
+            'img[class*="circle"]'
+        ];
+
+        for (const selector of avatarSelectors) {
+            if (container.querySelector(selector)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // 智能选择按钮位置（避免遮挡重要内容）
+    function getSmartButtonPosition(container) {
+        // 检查是否有头像等重要元素
+        const hasAvatar = hasAvatarOrImportantElement(container);
+
+        // 如果有头像，优先使用右侧位置
+        if (hasAvatar) {
+            // 避开左上角（通常是头像位置）
+            if (CONFIG.buttonPosition === 'top-left' || CONFIG.buttonPosition === 'bottom-left') {
+                return { top: '10px', right: '10px' }; // 强制使用右上角
+            }
+        }
+
         const positions = {
             'top-right': { top: '10px', right: '10px' },
             'bottom-right': { bottom: '10px', right: '10px' },
             'top-left': { top: '10px', left: '10px' },
             'bottom-left': { bottom: '10px', left: '10px' }
         };
+
         return positions[CONFIG.buttonPosition] || positions['top-right'];
     }
 
+    // 获取按钮位置样式
+    function getButtonPositionStyle(container) {
+        return getSmartButtonPosition(container);
+    }
+
     // 创建下载按钮
-    function createDownloadButton(mediaElement, mediaUrl, mediaType) {
+    function createDownloadButton(mediaElement, mediaUrl, mediaType, container) {
         const button = document.createElement('button');
         button.className = 'tg-download-btn';
         button.innerHTML = `
@@ -372,7 +414,8 @@
             <span>下载${mediaType === 'video' ? '视频' : '图片'}</span>
         `;
 
-        const positionStyle = getButtonPositionStyle();
+        // 使用智能位置选择
+        const positionStyle = getButtonPositionStyle(container);
         Object.assign(button.style, positionStyle);
 
         button.addEventListener('click', async (e) => {
@@ -787,8 +830,8 @@
             container.style.position = 'relative';
         }
 
-        // 创建并添加下载按钮
-        const button = createDownloadButton(element, url, mediaType);
+        // 创建并添加下载按钮（传递容器以便智能定位）
+        const button = createDownloadButton(element, url, mediaType, container);
         container.appendChild(button);
     }
 
@@ -969,7 +1012,7 @@
                         container.style.position = 'relative';
                     }
 
-                    const button = createDownloadButton(canvas, dataUrl, 'image');
+                    const button = createDownloadButton(canvas, dataUrl, 'image', container);
                     container.appendChild(button);
                 } catch (e) {
                     console.error('Canvas 处理失败:', e);
@@ -1034,7 +1077,7 @@
     function addWatermark() {
         const watermark = document.createElement('div');
         watermark.className = 'tg-watermark';
-        watermark.textContent = 'Telegram 下载器 v1.3.1';
+        watermark.textContent = 'Telegram 下载器 v1.3.2';
         document.body.appendChild(watermark);
 
         // 5秒后隐藏水印
