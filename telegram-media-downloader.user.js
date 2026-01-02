@@ -166,7 +166,7 @@
             console.log('[下载] 开始下载...');
             const firstRes = await fetch(url, {
                 method: 'GET',
-                headers: { 'Range': 'bytes=0-' },
+                headers: { 'Range': 'bytes=0-1' },
                 credentials: 'include'
             });
 
@@ -188,8 +188,9 @@
 
             // 不支持Range或返回200（完整文件），直接下载
             if (firstRes.status === 200 || !contentRange) {
-                console.log('[下载] 使用直接下载模式');
-                const blob = await firstRes.blob();
+                console.log('[下载] 服务器不支持Range，使用直接下载模式');
+                const res = await fetch(url, { credentials: 'include' });
+                const blob = await res.blob();
 
                 completeProgress(videoId);
 
@@ -217,10 +218,11 @@
             const totalSize = parseInt(rangeMatch[3]);
             console.log(`[下载] 文件大小: ${(totalSize / 1024 / 1024).toFixed(2)}MB`);
 
-            // 小文件（<5MB）直接下载，不并发
+            // 小文件（<5MB）直接下载，不分块
             if (totalSize < 5 * 1024 * 1024) {
                 console.log('[下载] 小文件，使用直接下载');
-                const blob = await firstRes.blob();
+                const res = await fetch(url, { credentials: 'include' });
+                const blob = await res.blob();
 
                 completeProgress(videoId);
 
@@ -242,18 +244,16 @@
             // 大文件：使用并发分块下载（提速）
             console.log('[下载] 大文件，使用并发分块下载');
             const chunkSize = 2 * 1024 * 1024; // 2MB per chunk
-            const chunks = [];
             const totalChunks = Math.ceil(totalSize / chunkSize);
+            const chunks = new Array(totalChunks); // 预分配数组
+            let downloadedSize = 0;
 
-            // 第一个chunk已经下载了，保存它
-            chunks[0] = await firstRes.blob();
-            let downloadedSize = chunks[0].size;
-            updateProgress(videoId, fileName, Math.round((downloadedSize * 100) / totalSize));
+            console.log(`[下载] 总共需要下载 ${totalChunks} 个分块`);
 
-            // 并发下载剩余chunk（最多4个并发）
+            // 并发下载（最多4个并发）
             const concurrency = 4;
 
-            for (let i = 1; i < totalChunks; i += concurrency) {
+            for (let i = 0; i < totalChunks; i += concurrency) {
                 const batchPromises = [];
 
                 for (let j = 0; j < concurrency && (i + j) < totalChunks; j++) {
@@ -261,20 +261,26 @@
                     const start = chunkIndex * chunkSize;
                     const end = Math.min(start + chunkSize - 1, totalSize - 1);
 
-                    const promise = fetch(url, {
-                        method: 'GET',
-                        headers: { 'Range': `bytes=${start}-${end}` },
-                        credentials: 'include'
-                    }).then(res => {
+                    const promise = (async () => {
+                        const res = await fetch(url, {
+                            method: 'GET',
+                            headers: { 'Range': `bytes=${start}-${end}` },
+                            credentials: 'include'
+                        });
+
                         if (![200, 206].includes(res.status)) {
-                            throw new Error(`HTTP ${res.status}`);
+                            throw new Error(`分块${chunkIndex}下载失败: HTTP ${res.status}`);
                         }
-                        return res.blob();
-                    }).then(blob => {
+
+                        const blob = await res.blob();
                         chunks[chunkIndex] = blob;
                         downloadedSize += blob.size;
-                        updateProgress(videoId, fileName, Math.round((downloadedSize * 100) / totalSize));
-                    });
+
+                        const percent = Math.round((downloadedSize * 100) / totalSize);
+                        updateProgress(videoId, fileName, percent);
+
+                        console.log(`[下载] 分块 ${chunkIndex + 1}/${totalChunks} 完成 (${percent}%)`);
+                    })();
 
                     batchPromises.push(promise);
                 }
@@ -282,9 +288,23 @@
                 await Promise.all(batchPromises);
             }
 
+            // 检查所有分块是否都已下载
+            console.log('[下载] 验证分块完整性...');
+            for (let i = 0; i < totalChunks; i++) {
+                if (!chunks[i]) {
+                    throw new Error(`分块${i}缺失`);
+                }
+            }
+
             // 合并所有分块
             console.log('[下载] 合并分块中...');
             const blob = new Blob(chunks, { type: `video/${fileExtension}` });
+            console.log(`[下载] 合并完成，总大小: ${(blob.size / 1024 / 1024).toFixed(2)}MB`);
+
+            if (blob.size !== totalSize) {
+                console.warn(`[下载] 警告：文件大小不匹配！预期: ${totalSize}, 实际: ${blob.size}`);
+            }
+
             const blobUrl = URL.createObjectURL(blob);
 
             const a = document.createElement('a');
